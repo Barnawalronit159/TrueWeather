@@ -35,9 +35,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import coil.compose.AsyncImage
-import eu.tutorials.trueweather.api.NetworkResponce
+import eu.tutorials.trueweather.api.NetworkResponse
 import eu.tutorials.trueweather.api.WeatherModel
+import eu.tutorials.trueweather.ui.theme.*
 
 @Composable
 fun WeatherPage(viewModel: WeatherViewModel){
@@ -46,52 +54,93 @@ fun WeatherPage(viewModel: WeatherViewModel){
     //to hide keyboard after searching
     var keyboardController= LocalSoftwareKeyboardController.current
 
+    val backgroundBrush = getBackgroundBrush(weatherResult.value)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(8.dp)
+            .background(backgroundBrush)
     ) {
         Column(
             modifier= Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
+                .fillMaxSize()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
                 modifier= Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
                     modifier=Modifier.weight(1f),
                     value = city,
                     onValueChange = {city=it},
-                    label = { Text(text = "Search for City")}
+                    label = { Text(text = "Search for City", color = Color.White)},
+                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White)
                 )
-                IconButton(onClick = {
-                    viewModel.getData(city)
-                    keyboardController?.hide()
-                }) {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = "To search about")
+                IconButton(
+                    onClick = {
+                        if(city.isNotBlank()){
+                            viewModel.getData(city)
+                            keyboardController?.hide()
+                        }
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if(city.isNotBlank()) GlassWhite else GlassWhite.copy(alpha = 0.1f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "To search about",
+                        tint = Color.White
+                    )
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             when(val result = weatherResult.value){
-                is NetworkResponce.Error -> {
-                    Text(text = result.message)
+                is NetworkResponse.Error -> {
+                    Text(text = result.message, color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
-                is NetworkResponce.Success -> {
+                is NetworkResponse.Success -> {
                     WeatherDetails(data = result.data)
                 }
-                NetworkResponce.loading -> {
-                    CircularProgressIndicator()
+                NetworkResponse.Loading -> {
+                    CircularProgressIndicator(color = Color.White)
                 }
-                null -> {}
+                null -> {
+                    Text(
+                        text = "Search a city to see weather",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 100.dp)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+fun getBackgroundBrush(result: NetworkResponse<WeatherModel>?): Brush {
+    val (startColor, endColor) = when (result) {
+        is NetworkResponse.Success -> {
+            val condition = result.data.current.condition.text.lowercase()
+            when {
+                condition.contains("sunny") || condition.contains("clear") -> SunnyStart to SunnyEnd
+                condition.contains("cloud") || condition.contains("overcast") || condition.contains("mist") || condition.contains("fog") -> CloudyStart to CloudyEnd
+                condition.contains("rain") || condition.contains("drizzle") || condition.contains("thund") -> RainyStart to RainyEnd
+                else -> NightStart to NightEnd
+            }
+        }
+        else -> NightStart to NightEnd
+    }
+    return Brush.verticalGradient(colors = listOf(startColor, endColor))
 }
 
 @Composable
@@ -110,18 +159,20 @@ fun WeatherDetails(data:WeatherModel){
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = "Location Icon",
-                modifier=Modifier.size(40.dp)
+                modifier=Modifier.size(40.dp),
+                tint = Color.White
             )
-            Text(text = data.location.name, fontSize = 30.sp)
+            Text(text = data.location.name, fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = data.location.country, fontSize = 18.sp, color = Color.Gray)
+            Text(text = data.location.country, fontSize = 18.sp, color = Color.White.copy(alpha = 0.7f))
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "${data.current.temp_c}˚C",
-            fontSize = 56.sp,
+            fontSize = 80.sp,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color.White
         )
 
         AsyncImage(
@@ -131,12 +182,21 @@ fun WeatherDetails(data:WeatherModel){
         )
         Text(
             text = data.current.condition.text,
-            fontSize = 20.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Gray
+            color = Color.White.copy(alpha = 0.9f)
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Card {
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Glassmorphic Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(GlassWhite)
+                .border(1.dp, GlassWhiteStroke, RoundedCornerShape(24.dp))
+                .padding(16.dp)
+        ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -163,6 +223,7 @@ fun WeatherDetails(data:WeatherModel){
                 }
             }
         }
+        Spacer(modifier = Modifier.weight(1f))
         Column(
             modifier = Modifier
                 .padding(bottom = 16.dp),
@@ -171,12 +232,12 @@ fun WeatherDetails(data:WeatherModel){
         ) {
             Text(
                 text = "powered by",
-                color = Color.Gray,
+                color = Color.White.copy(alpha = 0.5f),
                 fontSize = 14.sp
             )
             Text(
                 text = "R.B.",
-                color = Color.Gray,
+                color = Color.White.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
@@ -190,7 +251,7 @@ fun WeatherKeyValue(key:String,value:String){
         modifier=Modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        Text(text=value, fontWeight = FontWeight.Bold, fontSize = 24.sp)
-        Text(text = key, fontWeight = FontWeight.SemiBold,color= Color.Gray)
+        Text(text=value, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+        Text(text = key, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
     }
 }
